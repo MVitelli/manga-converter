@@ -69,10 +69,10 @@ func ScrapeChapterImages(mangaID string, chapter string) ([]string, error) {
 
 	var imageURLs []string
 
-	// Selector CSS para las imágenes del capítulo
-	c.OnHTML("div.container-chapter-reader img", func(e *colly.HTMLElement) {
-		imgSrc := e.Attr("src")
+	c.OnHTML("div.vung-doc img.img-loading", func(e *colly.HTMLElement) {
+		imgSrc := e.Attr("data-src")
 		if imgSrc != "" {
+			log.Println("Imagen encontrada:", imgSrc)
 			imageURLs = append(imageURLs, imgSrc)
 		}
 	})
@@ -91,7 +91,7 @@ func ScrapeChapterImages(mangaID string, chapter string) ([]string, error) {
 	}
 
 	if len(imageURLs) == 0 {
-		return nil, fmt.Errorf("no se encontraron imágenes para el capítulo %s del manga ID %s", chapter, mangaID)
+		return nil, fmt.Errorf("No se encontraron imágenes para el capítulo %s del manga ID %s", chapter, mangaID)
 	}
 
 	return imageURLs, nil
