@@ -5,6 +5,7 @@ go 1.23.1
 require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/gocolly/colly v1.2.0
+	github.com/jung-kurt/gofpdf v1.16.2
 )
 
 require (

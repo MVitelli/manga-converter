@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/gocolly/colly"
 )
@@ -21,6 +22,12 @@ func ScrapeMangaID(mangaName string) (string, error) {
 		colly.UserAgent("MangaAPI/1.0"),
 	)
 
+	c.Limit(&colly.LimitRule{
+		DomainGlob:  "*mangakakalot.tv",
+		Parallelism: 2,
+		Delay:       1 * time.Second,
+	})
+
 	var mangaID string
 
 	c.OnHTML("h3.story_name a", func(e *colly.HTMLElement) {
@@ -33,12 +40,13 @@ func ScrapeMangaID(mangaName string) (string, error) {
 			fmt.Printf("parts %s \n", strings.Join(parts, " "))
 			if len(parts) >= 3 {
 				mangaID = parts[2] // "manga-aa951409"
+				log.Println("Manga ID found:", mangaID)
 			}
 		}
 	})
 
 	c.OnRequest(func(r *colly.Request) {
-		log.Println("Buscando ID del manga en", r.URL.String())
+		log.Println("Visiting", r.URL.String())
 	})
 
 	c.OnError(func(r *colly.Response, err error) {
@@ -67,6 +75,12 @@ func ScrapeChapterImages(mangaID string, chapter string) ([]string, error) {
 		colly.UserAgent("MangaAPI/1.0"),
 	)
 
+	c.Limit(&colly.LimitRule{
+		DomainGlob:  "*mangakakalot.tv",
+		Parallelism: 2,
+		Delay:       1 * time.Second,
+	})
+
 	var imageURLs []string
 
 	c.OnHTML("div.vung-doc img.img-loading", func(e *colly.HTMLElement) {
@@ -91,7 +105,7 @@ func ScrapeChapterImages(mangaID string, chapter string) ([]string, error) {
 	}
 
 	if len(imageURLs) == 0 {
-		return nil, fmt.Errorf("No se encontraron imágenes para el capítulo %s del manga ID %s", chapter, mangaID)
+		return nil, fmt.Errorf("no se encontraron imágenes para el capítulo %s del manga ID %s", chapter, mangaID)
 	}
 
 	return imageURLs, nil
