@@ -3,9 +3,12 @@ package scraper
 import (
 	"fmt"
 	"log"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/MVitelli/manga-converter/internal/models"
 	"github.com/gocolly/colly"
 )
 
@@ -77,36 +80,80 @@ func ScrapeChapterImages(mangaID string, chapter string) ([]string, error) {
 
 	c.Limit(&colly.LimitRule{
 		DomainGlob:  "*mangakakalot.tv",
-		Parallelism: 2,
+		Parallelism: 1, // Procesamiento secuencial
 		Delay:       1 * time.Second,
 	})
 
-	var imageURLs []string
+	var imageDataSlice []models.ImageData
+
+	// Expresión regular para extraer el número de página
+	pageRegex := regexp.MustCompile(`page\s+(\d+)`)
 
 	c.OnHTML("div.vung-doc img.img-loading", func(e *colly.HTMLElement) {
-		imgSrc := e.Attr("data-src")
-		if imgSrc != "" {
-			log.Println("Imagen encontrada:", imgSrc)
-			imageURLs = append(imageURLs, imgSrc)
+		altText := e.Attr("alt")
+		titleText := e.Attr("title")
+		src := e.Attr("src")
+
+		if src == "" {
+			// Algunos sitios usan 'data-src' en lugar de 'src'
+			src = e.Attr("data-src")
 		}
+
+		if src == "" {
+			log.Println("No se encontró el atributo src o data-src en una imagen.")
+			return
+		}
+
+		// Combinar alt y title para mayor precisión
+		combinedText := fmt.Sprintf("%s %s", altText, titleText)
+
+		matches := pageRegex.FindStringSubmatch(strings.ToLower(combinedText))
+		if len(matches) < 2 {
+			log.Printf("No se pudo extraer el número de página de: %s\n", combinedText)
+			return
+		}
+
+		pageNumber, err := strconv.Atoi(matches[1])
+		if err != nil {
+			log.Printf("Error al convertir el número de página: %v\n", err)
+			return
+		}
+
+		log.Printf("Imagen encontrada: Página %d - %s\n", pageNumber, src)
+
+		// Agregar directamente al slice sin ordenar
+		imageDataSlice = append(imageDataSlice, models.ImageData{
+			PageNumber: pageNumber,
+			URL:        src,
+		})
 	})
 
 	c.OnRequest(func(r *colly.Request) {
-		log.Println("Visiting", r.URL.String())
+		log.Println("Visitando", r.URL.String())
 	})
 
 	c.OnError(func(r *colly.Response, err error) {
 		log.Printf("Error al extraer imágenes: %v en %v\n", err, r.Request.URL)
 	})
 
+	// Iniciar la visita
 	err := c.Visit(chapterURL)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(imageURLs) == 0 {
+	// Esperar a que todas las solicitudes se completen
+	c.Wait()
+
+	if len(imageDataSlice) == 0 {
 		return nil, fmt.Errorf("no se encontraron imágenes para el capítulo %s del manga ID %s", chapter, mangaID)
 	}
 
-	return imageURLs, nil
+	// Extraer las URLs en el orden en que fueron añadidas
+	sortedImageURLs := make([]string, len(imageDataSlice))
+	for i, img := range imageDataSlice {
+		sortedImageURLs[i] = img.URL
+	}
+
+	return sortedImageURLs, nil
 }

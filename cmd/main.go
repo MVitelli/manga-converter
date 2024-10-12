@@ -114,6 +114,11 @@ func getMangaChapterPDF(c *gin.Context) {
 	// Definir la ruta del PDF de salida
 	pdfPath := filepath.Join(tempDir, "chapter.pdf")
 
+	// Confirmar el orden de las imágenes descargadas
+	for i, imgPath := range downloadedImages {
+		log.Printf("Añadiendo al PDF: Página %d - %s", i+1, imgPath)
+	}
+
 	// Convertir las imágenes a PDF
 	err = pdf.ImagesToPDF(downloadedImages, pdfPath)
 	if err != nil {
@@ -161,7 +166,7 @@ func downloadImage(url, dest string) error {
 func downloadImagesConcurrently(urls []string, destDir string) ([]string, error) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	var downloaded []string
+	downloaded := make([]string, len(urls))
 	var errs []error
 
 	// Limitar el número de goroutines simultáneas
@@ -181,7 +186,8 @@ func downloadImagesConcurrently(urls []string, destDir string) ([]string, error)
 			}
 
 			// Crear el nombre del archivo
-			imgPath := filepath.Join(destDir, fmt.Sprintf("%03d%s", idx+1, ext))
+			filename := fmt.Sprintf("%03d%s", idx+1, ext)
+			imgPath := filepath.Join(destDir, filename)
 
 			// Descargar la imagen
 			err := downloadImage(url, imgPath)
@@ -193,9 +199,7 @@ func downloadImagesConcurrently(urls []string, destDir string) ([]string, error)
 				return
 			}
 
-			mu.Lock()
-			downloaded = append(downloaded, imgPath)
-			mu.Unlock()
+			downloaded[idx] = imgPath
 		}(idx, url)
 	}
 

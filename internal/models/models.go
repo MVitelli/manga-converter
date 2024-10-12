@@ -5,3 +5,8 @@ type MangaChapter struct {
 	Chapter   string   `json:"chapter"`
 	ImageURLs []string `json:"image_urls"`
 }
+
+type ImageData struct {
+	PageNumber int
+	URL        string
+}
